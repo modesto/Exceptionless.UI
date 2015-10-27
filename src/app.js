@@ -64,7 +64,9 @@
   ])
   .config(['$locationProvider', '$stateProvider', '$uiViewScrollProvider', '$urlRouterProvider', 'dialogsProvider', 'gravatarServiceProvider', 'RestangularProvider', 'BASE_URL', 'EXCEPTIONLESS_API_KEY', '$ExceptionlessClient', 'stripeProvider', 'STRIPE_PUBLISHABLE_KEY', 'USE_HTML5_MODE', function ($locationProvider, $stateProvider, $uiViewScrollProvider, $urlRouterProvider, dialogsProvider, gravatarServiceProvider, RestangularProvider, BASE_URL, EXCEPTIONLESS_API_KEY, $ExceptionlessClient, stripeProvider, STRIPE_PUBLISHABLE_KEY, USE_HTML5_MODE) {
     $ExceptionlessClient.config.apiKey = EXCEPTIONLESS_API_KEY;
-    $ExceptionlessClient.config.serverUrl = BASE_URL.substring(0, BASE_URL.indexOf('/api/'));
+    $ExceptionlessClient.config.serverUrl = BASE_URL;
+    $ExceptionlessClient.config.setVersion('@@version');
+    $ExceptionlessClient.config.defaultTags.push('UI');
 
     $locationProvider.html5Mode({
       enabled: (typeof USE_HTML5_MODE === 'boolean' && USE_HTML5_MODE) || USE_HTML5_MODE === 'true',
@@ -79,7 +81,7 @@
       'default': 'mm'
     };
 
-    RestangularProvider.setBaseUrl(BASE_URL);
+    RestangularProvider.setBaseUrl(BASE_URL + '/api/v2');
     RestangularProvider.setFullResponse(true);
     //RestangularProvider.setDefaultHttpFields({ timeout: 10 * 1000 });
 
@@ -87,14 +89,14 @@
       stripeProvider.setPublishableKey(STRIPE_PUBLISHABLE_KEY);
     }
 
-    $urlRouterProvider.when('', '/type/error/dashboard');
-    $urlRouterProvider.when('/', '/type/error/dashboard');
-
     $stateProvider.state('app', {
       abstract: true,
       templateUrl: 'app/app.tpl.html',
       controller: 'App',
-      controllerAs: 'appVm'
+      controllerAs: 'appVm',
+      data: {
+        requireAuthentication: true
+      }
     });
 
     $stateProvider.state('app.dashboard', {
@@ -474,8 +476,34 @@
       }]
     });
 
-    $stateProvider.state("otherwise", {
-      url: "*path",
+    var onEnter = ['authService', '$location', '$state', '$timeout', function (authService, $location, $state, $timeout) {
+      if ($location.search().code){
+        return;
+      }
+
+      return $timeout(function () {
+        if (authService.isAuthenticated()) {
+          $state.transitionTo('app.type-dashboard', {type: 'error'});
+        } else {
+          $state.transitionTo('auth.login');
+        }
+      });
+    }];
+
+    $stateProvider.state('loading', {
+      url: '',
+      template: null,
+      onEnter: onEnter
+    });
+
+    $stateProvider.state('loading-slash', {
+      url: '/',
+      template: null,
+      onEnter: onEnter
+    });
+
+    $stateProvider.state('otherwise', {
+      url: '*path',
       templateUrl: 'app/not-found.tpl.html',
       onEnter: ['$stateParams', function ($stateParams) {
         $ExceptionlessClient.createNotFound($stateParams.path)
@@ -484,13 +512,12 @@
       }]
     });
   }])
-  .run(['$http', '$state', 'editableOptions', '$location', 'rateLimitService', 'Restangular', 'stateService', 'USE_SSL', '$window', function($http, $state, editableOptions, $location, rateLimitService, Restangular, stateService, USE_SSL, $window) {
+  .run(['$http', '$rootScope', '$state', 'authService', 'editableOptions', '$location', 'rateLimitService', 'Restangular', 'stateService', 'USE_SSL', '$window', function($http, $rootScope, $state, authService, editableOptions, $location, rateLimitService, Restangular, stateService, USE_SSL, $window) {
     if (((typeof USE_SSL === 'boolean' && USE_SSL) || USE_SSL === 'true') && $location.protocol() !== 'https') {
         $window.location.href = $location.absUrl().replace('http', 'https');
     }
 
     editableOptions.theme = 'bs3';
-
     Restangular.setErrorInterceptor(function(response, deferred, responseHandler) {
       function handleError(response) {
         if ($state.current.name !== 'status' && (response.status === 0 || response.status === 503)) {
@@ -499,13 +526,13 @@
           return true;
         }
 
-        if(response.status === 401) {
+        if (response.status === 401) {
           stateService.save(['auth.']);
           $state.go('auth.login');
           return true;
         }
 
-        if(response.status === 409) {
+        if (response.status === 409) {
           return true;
         }
 
@@ -527,6 +554,17 @@
       }
 
       return !handleError(response);
+    });
+
+    $rootScope.$on('$stateChangeStart', function (event, toState) {
+      if (!toState || !toState.data || !toState.data.requireAuthentication)
+        return;
+
+      if (!authService.isAuthenticated()) {
+        event.preventDefault();
+        stateService.save(['auth.']);
+        $state.transitionTo('auth.login');
+      }
     });
   }]);
 }());

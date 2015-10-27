@@ -35,7 +35,7 @@
 
     function buildParameters(parameters) {
       var result = '(';
-      for (var index = 0; index < parameters.length; index++) {
+      for (var index = 0; index < (parameters || []).length; index++) {
         if (index > 0) {
           result += ', ';
         }
@@ -46,8 +46,8 @@
     }
 
     function buildStackFrame(frame) {
-      if (!frame || !frame.name) {
-        return '<null>';
+      if (!frame) {
+        return '<null>\r\n';
       }
 
       var typeNameParts = [];
@@ -59,9 +59,7 @@
         typeNameParts.push(frame.declaring_type);
       }
 
-      if (!!frame.name) {
-        typeNameParts.push(frame.name);
-      }
+      typeNameParts.push(frame.name || '<anonymous>');
 
       var result = 'at ' + typeNameParts.join('.').replace('+', '.');
 
@@ -69,10 +67,7 @@
         result += '[' + frame.generic_arguments.join(',') + ']';
       }
 
-      if (!!frame.parameters && frame.parameters.length > 0) {
-        result += buildParameters(frame.parameters);
-      }
-
+      result += buildParameters(frame.parameters);
       if (!!frame.data && (frame.data.ILOffset > 0 || frame.data.NativeOffset > 0)) {
         result += ' at offset ' + frame.data.ILOffset || frame.data.NativeOffset;
       }
@@ -94,11 +89,12 @@
     function buildStackFrames(exceptions) {
       var frames = '';
       for (var index = 0; index < exceptions.length; index++) {
-        if (!!exceptions[index].stack_trace) {
+        var stackTrace = exceptions[index].stack_trace;
+        if (!!stackTrace) {
           frames += '<div class="stack-frame">';
 
-          for (var frameIndex = 0; frameIndex < exceptions[index].stack_trace.length; frameIndex++) {
-            frames += buildStackFrame(exceptions[index].stack_trace[frameIndex]);
+          for (var frameIndex = 0; frameIndex < stackTrace.length; frameIndex++) {
+            frames += sanitize(buildStackFrame(stackTrace[frameIndex]));
           }
 
           if (index < (exceptions.length - 1)) {

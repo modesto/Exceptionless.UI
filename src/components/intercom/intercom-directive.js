@@ -8,7 +8,7 @@
         restrict: 'E',
         replace: true,
         templateUrl: 'components/intercom/intercom-directive.tpl.html',
-        controller: ['$interval', '$scope', 'authService', 'filterService', 'INTERCOM_APPID', '$intercom', 'objectIDService', 'organizationService', 'projectService', 'userService', 'VERSION', function ($interval, $scope, authService, filterService, INTERCOM_APPID, $intercom, objectIDService, organizationService, projectService, userService, VERSION) {
+        controller: ['$interval', '$scope', 'authService', 'filterService', 'INTERCOM_APPID', '$intercom', 'objectIDService', 'organizationService', 'projectService', 'userService', function ($interval, $scope, authService, filterService, INTERCOM_APPID, $intercom, objectIDService, organizationService, projectService, userService) {
           if (!authService.isAuthenticated()) {
             return;
           }
@@ -60,11 +60,11 @@
               remote_created_at: objectIDService.create(vm.user.id).timestamp
             };
 
-            var versionParts = VERSION.split('.');
-            var build = 0;
+            var versionParts = '@@version'.split('.');
             if (versionParts.length === 3)
-              build = parseInt(versionParts[2]);
+              data.app_build = parseInt(versionParts[2]);
 
+            // TODO: include the total event count for the organization.
             var currentOrganization = getCurrentOrganization();
             if (currentOrganization) {
               data.company = {
@@ -72,11 +72,8 @@
                 name: currentOrganization.name,
                 remote_created_at: objectIDService.create(currentOrganization.id).timestamp,
                 plan: currentOrganization.plan_id,
-                monthly_spend: currentOrganization.billing_price,
-                total_errors: currentOrganization.total_event_count
+                monthly_spend: currentOrganization.billing_price
               };
-
-              data.app_build = build;
 
               if (currentOrganization.subscribe_date) {
                 data.company.subscribe_at = moment(currentOrganization.subscribe_date).unix();

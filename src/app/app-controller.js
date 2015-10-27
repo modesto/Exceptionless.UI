@@ -2,13 +2,13 @@
   'use strict';
 
   angular.module('app')
-    .controller('App', ['$scope', '$state', '$stateParams', '$window', 'authService', 'billingService', '$ExceptionlessClient', 'filterService', 'hotkeys', 'INTERCOM_APPID', '$intercom', 'locker', 'notificationService', 'organizationService', 'projectService', 'signalRService', 'stateService', 'STRIPE_PUBLISHABLE_KEY', 'SYSTEM_NOTIFICATION_MESSAGE', 'urlService', 'userService', 'VERSION', function ($scope, $state, $stateParams, $window, authService, billingService, $ExceptionlessClient, filterService, hotkeys, INTERCOM_APPID, $intercom, locker, notificationService, organizationService, projectService, signalRService, stateService, STRIPE_PUBLISHABLE_KEY, SYSTEM_NOTIFICATION_MESSAGE, urlService, userService, VERSION) {
+    .controller('App', ['$scope', '$state', '$stateParams', '$window', 'authService', 'billingService', '$ExceptionlessClient', 'filterService', 'hotkeys', 'INTERCOM_APPID', '$intercom', 'locker', 'notificationService', 'projectService', 'signalRService', 'stateService', 'STRIPE_PUBLISHABLE_KEY', 'SYSTEM_NOTIFICATION_MESSAGE', 'urlService', 'userService', function ($scope, $state, $stateParams, $window, authService, billingService, $ExceptionlessClient, filterService, hotkeys, INTERCOM_APPID, $intercom, locker, notificationService, projectService, signalRService, stateService, STRIPE_PUBLISHABLE_KEY, SYSTEM_NOTIFICATION_MESSAGE, urlService, userService) {
       var source = 'app.App';
       var _store = locker.driver('local').namespace('app');
       var vm = this;
 
       function canChangePlan() {
-        return !!STRIPE_PUBLISHABLE_KEY && vm.organizations && vm.organizations.length > 0;
+        return !!STRIPE_PUBLISHABLE_KEY && vm.projects && vm.projects.length > 0;
       }
 
       function changePlan(organizationId) {
@@ -31,13 +31,13 @@
         return urlService.buildFilterUrl({ route: 'new', projectId: filterService.getProjectId(), organizationId: filterService.getOrganizationId(),  type: type });
       }
 
-      function getOrganizations() {
+      function getProjects() {
         function onSuccess(response) {
-          vm.organizations = response.data.plain();
+          vm.projects = response.data.plain();
           return response;
         }
 
-        return organizationService.getAll().then(onSuccess);
+        return projectService.getAll().then(onSuccess);
       }
 
       function getUser(data) {
@@ -119,11 +119,6 @@
         return signalRService.startDelayed(1000);
       }
 
-      if (!authService.isAuthenticated()) {
-        stateService.save(['auth.']);
-        return $state.go('auth.login');
-      }
-
       if (!!navigator.userAgent.match(/MSIE/i)) {
         angular.element($window.document.body).addClass('ie');
       }
@@ -148,7 +143,7 @@
           description: 'Documentation',
           callback: function openDocumention() {
             $ExceptionlessClient.createFeatureUsage(source + '.hotkeys.Documentation').addTags('hotkeys').submit();
-            $window.open('http://docs.exceptionless.com', '_blank');
+            $window.open('https://github.com/exceptionless/Exceptionless/wiki', '_blank');
           }
         });
 
@@ -160,7 +155,7 @@
       vm.getRecentUrl = getRecentUrl;
       vm.getFrequentUrl = getFrequentUrl;
       vm.getNewUrl = getNewUrl;
-      vm.getOrganizations = getOrganizations;
+      vm.getProjects = getProjects;
       vm.getUser = getUser;
       vm.getSystemNotificationMessage = getSystemNotificationMessage;
       vm.hasAdminRole = hasAdminRole;
@@ -170,12 +165,11 @@
       vm.isIntercomEnabled = isIntercomEnabled;
       vm.isSideNavCollapsed = _store.get('sideNavCollapsed') === true;
       vm.isTypeMenuActive = isTypeMenuActive;
-      vm.organizations = [];
+      vm.projects = [];
       vm.showIntercom = showIntercom;
       vm.toggleSideNavCollapsed = toggleSideNavCollapsed;
       vm.user = {};
-      vm.version = VERSION;
 
-      getUser().then(getOrganizations).then(startSignalR);
+      getUser().then(getProjects).then(startSignalR);
     }]);
 }());
